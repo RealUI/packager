@@ -712,8 +712,8 @@ set_info_file() {
 		# Populate filter vars from the last commit the file was included in.
 		si_file_author=$( git -C "$_si_file_dir" log --max-count=1 --format="%an" -- "$_si_file" 2>/dev/null )
 		si_file_timestamp=$( git -C "$_si_file_dir" log --max-count=1 --format="%at" -- "$_si_file" 2>/dev/null )
-		si_file_revision=$( git -C "$_si_file_dir" rev-list --count "$si_file_hash" 2>/dev/null ) # XXX checkout depth affects rev-list, see set_info_git
 		si_file_hash=$( git -C "$_si_file_dir" log --max-count=1 --format="%H" -- "$_si_file" 2>/dev/null )
+		si_file_revision=$( git -C "$_si_file_dir" rev-list --count "$si_file_hash" 2>/dev/null ) # XXX checkout depth affects rev-list, see set_info_git
 		si_file_abbreviated_hash=$( git -C "$_si_file_dir" log --max-count=1 --abbrev=7 --format="%h" -- "$_si_file" 2>/dev/null )
 
 	elif [[ $si_repo_type == "svn" ]]; then
@@ -2018,7 +2018,7 @@ checkout_external() {
 
 		if [ -z "$_external_tag" ]; then
 			echo "Fetching latest version of external $_external_uri"
-			retry svn checkout -q "$_external_uri" "$_cqe_checkout_dir" || return 1
+			retry svn checkout -q "$_external_uri" "$_cqe_checkout_dir" --force || return 1
 		else
 			_cqe_svn_tag_url="${_cqe_svn_trunk_url%/trunk}/tags"
 			if [ "$_external_tag" = "latest" ]; then
@@ -2030,14 +2030,14 @@ checkout_external() {
 			if [ "$_external_tag" = "latest" ]; then
 				echo "No tags found in $_cqe_svn_tag_url"
 				echo "Fetching latest version of external $_external_uri"
-				retry svn checkout -q "$_external_uri" "$_cqe_checkout_dir" || return 1
+				retry svn checkout -q "$_external_uri" "$_cqe_checkout_dir" --force || return 1
 			else
 				_cqe_external_uri="${_cqe_svn_tag_url}/$_external_tag"
 				if [ -n "$_cqe_svn_subdir" ]; then
 					_cqe_external_uri="${_cqe_external_uri}/$_cqe_svn_subdir"
 				fi
 				echo "Fetching tag \"$_external_tag\" from external $_cqe_external_uri"
-				retry svn checkout -q "$_cqe_external_uri" "$_cqe_checkout_dir" || return 1
+				retry svn checkout -q "$_cqe_external_uri" "$_cqe_checkout_dir" --force || return 1
 			fi
 		fi
 		set_info_svn "$_cqe_checkout_dir" || return 1
@@ -2104,6 +2104,8 @@ external_checkout_type=
 external_path=
 process_external() {
 	if [ -n "$external_dir" ] && [ -n "$external_uri" ] && [ -z "$skip_externals" ]; then
+		echo "Fetching external: $external_dir"
+
 		external_uri=${external_uri%%#*} # strip trailing comment
 		external_uri=${external_uri% *}  # strip trailing space
 		external_uri=${external_uri%/}   # strip trailing slash
@@ -2159,6 +2161,10 @@ process_external() {
 		fi
 
 		if [[ $external_type == "git" ]]; then
+			if ! command -v git &>/dev/null; then
+				echo "    ERROR! \"$external_uri\" is a git repository, but git is not available." >&2
+				exit 1
+			fi
 			# check for subpath in urls we know the structure of
 			if [[ -n $external_slug && $external_uri == *"$external_slug/"* ]]; then
 				# CF: https://repos.curseforge.com/wow/libdothings-1-0/LibDoThings-1.0
@@ -2169,13 +2175,22 @@ process_external() {
 				external_path=${external_uri#*.com/*/*/}
 				external_uri=${external_uri%/$external_path*}
 			fi
+		elif [[ $external_type == "svn" ]]; then
+			if ! command -v svn &>/dev/null; then
+				echo "    ERROR! \"$external_uri\" is a subversion repository, but svn is not available." >&2
+				exit 1
+			fi
+		elif [[ $external_type == "hg" ]]; then
+			if ! command -v hg &>/dev/null; then
+				echo "    ERROR! \"$external_uri\" is a mercurial repository, but hg is not available." >&2
+				exit 1
+			fi
 		fi
 
 		if [ -n "$external_slug" ]; then
 			relations["${external_slug,,}"]="embeddedLibrary"
 		fi
 
-		echo "Fetching external: $external_dir"
 		checkout_external "$external_dir" "$external_uri" "$external_tag" "$external_type" "$external_slug" "$external_checkout_type" "$external_path" &> "$releasedir/.$BASHPID.externalout" &
 		external_pids+=($!)
 	fi
@@ -2432,9 +2447,11 @@ else
 		$changelog_url $changelog_previous
 
 		EOF
+		# ignore sed matching backticks
+		# shellcheck disable=SC2016
 		git -C "$topdir" log "$_changelog_range" --pretty=format:"###%B" \
 			| sed -e 's/^/    /g' -e 's/^ *$//g' -e 's/^    ###/- /g' -e 's/$/  /' \
-			      -e 's/\([a-zA-Z0-9]\)_\([a-zA-Z0-9]\)/\1\\_\2/g' \
+			      -e ':a;s/^\(\(`[^`]*`\|[^`_]*\)*\)_/\1\\###/;ta' -e 's/###/_/g' \
 			      -e 's/\[ci skip\]//g' -e 's/\[skip ci\]//g' \
 			      -e '/git-svn-id:/d' -e '/^[[:space:]]*This reverts commit [0-9a-f]\{40\}\.[[:space:]]*$/d' \
 			      -e '/^[[:space:]]*$/d' \
@@ -2474,11 +2491,13 @@ else
 
 		EOF
 		_svn_changelog=$( retry svn log "$topdir" "$_changelog_range" --xml )
+		# ignore sed matching backticks
+		# shellcheck disable=SC2016
 		echo "$_svn_changelog" \
 			| awk '/<msg>/,/<\/msg>/' \
 			| sed -e 's/<msg>/###/g' -e 's/<\/msg>//g' \
 			      -e 's/^/    /g' -e 's/^ *$//g' -e 's/^    ###/- /g' -e 's/$/  /' \
-			      -e 's/\([a-zA-Z0-9]\)_\([a-zA-Z0-9]\)/\1\\_\2/g' \
+			      -e ':a;s/^\(\(`[^`]*`\|[^`_]*\)*\)_/\1\\###/;ta' -e 's/###/_/g' \
 			      -e 's/\[ci skip\]//g' -e 's/\[skip ci\]//g' \
 			      -e '/^[[:space:]]*$/d' \
 			| line_ending_filter >> "$changelog_path"
@@ -2545,7 +2564,7 @@ fi
 
 if [[ -n "$license" && ! -f "$topdir/$license" && -n "$slug" ]]; then
 	start_group "Saving license as $license" "license"
-	# curseforge.com is protected by cloudflare, but wowace.com isn't? >.>
+	# this only exists on wowace.com now
 	if license_text=$( curl -sf --retry 3 --retry-delay 10 "https://www.wowace.com/project/$slug/license" 2>/dev/null ); then
 		# text is wrapped with \n\n<div class="module">\n\t<p>\n\t\t ... \n\t</p>\n</div>\n
 		echo "$license_text" | sed -e '1,4d' -e '5s/^\s*//' -e '$d' | sed '$d' > "$pkgdir/$license"
@@ -2803,7 +2822,7 @@ upload_curseforge() {
 	fi
 
 	local _cf_game_version_id _cf_game_version _cf_versions
-	_cf_versions=$( curl -s -H "x-api-token: $cf_token" "$project_site/api/game/versions" )
+	_cf_versions=$( curl -s -H "x-api-token: $cf_token" "$project_site/api/game/wow/versions" )
 	if [[ -n $_cf_versions && $_cf_versions != *"errorMessage"* ]]; then
 		_cf_game_version_id=
 		_cf_game_version=
@@ -2877,7 +2896,7 @@ upload_curseforge() {
 		_cf_payload=$( echo "$_cf_payload $_cf_payload_relations" | jq -s -c '.[0] * .[1]' )
 	fi
 
-	echo "Uploading $archive_name ($_cf_game_version $file_type) to https://www.curseforge.com/projects/$slug"
+	echo "Uploading $archive_name ($_cf_game_version $file_type) to https://wow.curseforge.com/projects/$slug"
 	resultfile="$releasedir/cf_result.json"
 	if result=$( echo "$_cf_payload" | curl -sS --retry 3 --retry-delay 10 \
 			-w "%{http_code}" -o "$resultfile" \
@@ -3117,6 +3136,10 @@ upload_wago() {
 			302)
 				echo "Error! ($result)"
 				# don't need to ouput the redirect page
+				return_code=1
+				;;
+			403)
+				echo "Error! ($result)"
 				return_code=1
 				;;
 			404)
