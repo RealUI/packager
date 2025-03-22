@@ -2571,10 +2571,11 @@ declare -A WoWI=(
 	["Raven"]=18242
 )
 declare -A Wago=(
-	["Grid2"]="grid2"
+	# ["Grid2"]="grid2"
 )
 declare -A GitHub=(
 	["KNP"]="kesava-wow/kuinameplates2"
+	["Grid2"]="michaelnpsp/Grid2"
 )
 declare -A extFolders=(
 	["Aurora"]="Aurora"
@@ -2625,18 +2626,22 @@ done
 for addon in "${!GitHub[@]}"; do
 	echo "$addon";
 	addonDir="$releasedir/$addon"
-
+    if [ -f "release.json" ]; then
+		rm -f "release.json"
+    fi
     version=$(curl -s "https://api.github.com/repos/${GitHub[$addon]}/releases/latest" | jq -r '.name')
     wget -q "https://github.com/${GitHub[$addon]}/releases/download/$version/release.json"
 
     fileName=
     while read -r i; do
-        flavor=$(jq -r ".metadata[].flavor" <<< "$i")
+        flavor=$(jq -r ".metadata[0].flavor" <<< "$i")
         if [ "$flavor" == "mainline" ]; then
             fileName=$(jq -r ".filename" <<< "$i")
         fi
     done < <(jq -c '.releases[]' release.json)
-
+    if [ -f "release.json" ]; then
+		rm -f "release.json"
+    fi
     wget -q -O "$addonDir.zip" "https://github.com/${GitHub[$addon]}/releases/download/$version/$fileName"
 	unzip -q "$addonDir.zip" -d "$releasedir"
 	zip_root_dirs+=("${extFolders[$addon]}")
