@@ -2581,7 +2581,7 @@ fi
 ###
 
 declare -A WoWI=(
-	["Aurora"]=18589
+	# ["Aurora"]=18589
 	["BadBoy"]=8736
 	["BadBoy_CCleaner"]=13526
 	["BadBoy_Guilded"]=16951
@@ -2593,6 +2593,7 @@ declare -A Wago=(
 	# ["Grid2"]="grid2"
 )
 declare -A GitHub=(
+	["Aurora"]="Gethe/Aurora"
 	["KNP"]="kesava-wow/kuinameplates2"
 	["Grid2"]="michaelnpsp/Grid2"
 )
