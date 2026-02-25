@@ -2594,8 +2594,8 @@ declare -A Wago=(
 )
 declare -A GitHub=(
 	["Aurora"]="Gethe/Aurora"
-	# ["KNP"]="kesava-wow/kuinameplates2"
 	["Grid2"]="michaelnpsp/Grid2"
+	["Platynator"]="TheMouseNest/Platynator"
 )
 declare -A extFolders=(
 	["Aurora"]="Aurora"
@@ -2604,7 +2604,7 @@ declare -A extFolders=(
 	["BadBoy_Guilded"]="BadBoy_Guilded"
 	["Bartender4"]="Bartender4"
 	["Grid2"]="Grid2 Grid2LDB Grid2Options Grid2RaidDebuffs Grid2RaidDebuffsOptions"
-	# ["KNP"]="Kui_Media Kui_Nameplates Kui_Nameplates_Core Kui_Nameplates_Core_Config"
+	["Platynator"]="Platynator"
 	["Masque"]="Masque"
 	# ["Raven"]="Raven Raven_Options"
 )
@@ -2652,13 +2652,7 @@ for addon in "${!GitHub[@]}"; do
     version=$(curl -s "https://api.github.com/repos/${GitHub[$addon]}/releases/latest" | jq -r '.name')
     wget -q "https://github.com/${GitHub[$addon]}/releases/download/$version/release.json"
 
-    fileName=
-    while read -r i; do
-        flavor=$(jq -r ".metadata[0].flavor" <<< "$i")
-        if [ "$flavor" == "mainline" ]; then
-            fileName=$(jq -r ".filename" <<< "$i")
-        fi
-    done < <(jq -c '.releases[]' release.json)
+    fileName=$(jq -r 'first(.releases[] | select(any(.metadata[]; .flavor == "mainline")) | .filename)' release.json)
     if [ -f "release.json" ]; then
 		rm -f "release.json"
     fi
