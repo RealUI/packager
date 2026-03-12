@@ -2593,7 +2593,7 @@ declare -A Wago=(
 	# ["Grid2"]="grid2"
 )
 declare -A GitHub=(
-	["Aurora"]="Gethe/Aurora"
+	["Aurora"]="RealUI/Aurora"
 	["Grid2"]="michaelnpsp/Grid2"
 	["Platynator"]="TheMouseNest/Platynator"
 )
