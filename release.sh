@@ -2590,11 +2590,11 @@ declare -A WoWI=(
 	# ["Raven"]=18242
 )
 declare -A Wago=(
-	# ["Grid2"]="grid2"
+	["Grid2"]="grid2"
 )
 declare -A GitHub=(
 	["Aurora"]="RealUI/Aurora"
-	["Grid2"]="michaelnpsp/Grid2"
+	# ["Grid2"]="michaelnpsp/Grid2"
 	["Platynator"]="TheMouseNest/Platynator"
 )
 declare -A extFolders=(
