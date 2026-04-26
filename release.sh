@@ -67,6 +67,10 @@ label_template="{project-version}{classic}{nolib}"
 
 wowi_markup="bbcode"
 
+# Set to "no" to skip bundling third-party addons into the release zip.
+# Useful for Wago-focused builds where dependencies are installed separately.
+bundle_external_addons="yes"
+
 ## END USER OPTIONS
 
 if [[ ${BASH_VERSINFO[0]} -lt 4 ]] || [[ ${BASH_VERSINFO[0]} -eq 4 && ${BASH_VERSINFO[1]} -lt 3 ]]; then
@@ -442,6 +446,17 @@ fi
 [ -z "$github_token" ] && github_token=$GITHUB_OAUTH
 [ -z "$wowi_token" ] && wowi_token=$WOWI_API_TOKEN
 [ -z "$wago_token" ] && wago_token=$WAGO_API_TOKEN
+[ -z "$wago_token" ] && wago_token=$WAGO_API_KEY
+[ -n "$BUNDLE_EXTERNAL_ADDONS" ] && bundle_external_addons=$BUNDLE_EXTERNAL_ADDONS
+
+case "${bundle_external_addons,,}" in
+	yes|true|on|1)
+		bundle_external_addons="yes"
+		;;
+	*)
+		bundle_external_addons="no"
+		;;
+esac
 
 # Set $releasedir to the directory which will contain the generated addon zipfile.
 if [ -z "$releasedir" ]; then
@@ -2580,88 +2595,96 @@ fi
 ### Download external addons
 ###
 
-declare -A WoWI=(
-	# ["Aurora"]=18589
-	["BadBoy"]=8736
-	["BadBoy_CCleaner"]=13526
-	["BadBoy_Guilded"]=16951
-	["Bartender4"]=11190
-	["Masque"]=12097
-	# ["Raven"]=18242
-)
-declare -A Wago=(
-	["Grid2"]="grid2"
-	["Platynator"]="platynator"
-)
-declare -A GitHub=(
-	["Aurora"]="RealUI/Aurora"
-	# ["Grid2"]="michaelnpsp/Grid2"
-	# ["Platynator"]="TheMouseNest/Platynator"
-)
-declare -A extFolders=(
-	["Aurora"]="Aurora"
-	["BadBoy"]="BadBoy"
-	["BadBoy_CCleaner"]="BadBoy_CCleaner"
-	["BadBoy_Guilded"]="BadBoy_Guilded"
-	["Bartender4"]="Bartender4"
-	["Grid2"]="Grid2 Grid2LDB Grid2Options Grid2RaidDebuffs Grid2RaidDebuffsOptions"
-	["Platynator"]="Platynator"
-	["Masque"]="Masque"
-	# ["Raven"]="Raven Raven_Options"
-)
+if [ "$bundle_external_addons" = "yes" ]; then
+	declare -A WoWI=(
+		# ["Aurora"]=18589
+		["BadBoy"]=8736
+		["BadBoy_CCleaner"]=13526
+		["BadBoy_Guilded"]=16951
+		["Bartender4"]=11190
+		["Masque"]=12097
+		# ["Raven"]=18242
+	)
+	declare -A Wago=(
+		["Grid2"]="grid2"
+		["Platynator"]="platynator"
+	)
+	declare -A GitHub=(
+		["Aurora"]="RealUI/Aurora"
+		# ["Grid2"]="michaelnpsp/Grid2"
+		# ["Platynator"]="TheMouseNest/Platynator"
+	)
+	declare -A extFolders=(
+		["Aurora"]="Aurora"
+		["BadBoy"]="BadBoy"
+		["BadBoy_CCleaner"]="BadBoy_CCleaner"
+		["BadBoy_Guilded"]="BadBoy_Guilded"
+		["Bartender4"]="Bartender4"
+		["Grid2"]="Grid2 Grid2LDB Grid2Options Grid2RaidDebuffs Grid2RaidDebuffsOptions"
+		["Platynator"]="Platynator"
+		["Masque"]="Masque"
+		# ["Raven"]="Raven Raven_Options"
+	)
 
-addonDir=
-for addon in "${!WoWI[@]}"; do
-    echo "$addon";
-	addonDir="$releasedir/$addon"
-    url=$(curl -s "https://api.mmoui.com/v3/game/WOW/filedetails/${WoWI[$addon]}.json" | jq '.[0].UIDownload')
+	addonDir=
+	for addon in "${!WoWI[@]}"; do
+		echo "$addon"
+		addonDir="$releasedir/$addon"
+		url=$(curl -s "https://api.mmoui.com/v3/game/WOW/filedetails/${WoWI[$addon]}.json" | jq '.[0].UIDownload')
 
-    wget -q -O "$addonDir.zip" "${url//\"}"
-    unzip -q "$addonDir.zip" -d "$releasedir"
-	zip_root_dirs+=("${extFolders[$addon]}")
-    rm "$addonDir.zip"
-done
+		wget -q -O "$addonDir.zip" "${url//\"}"
+		unzip -q "$addonDir.zip" -d "$releasedir"
+		zip_root_dirs+=("${extFolders[$addon]}")
+		rm "$addonDir.zip"
+	done
 
-for addon in "${!Wago[@]}"; do
-	echo "$addon";
-	addonDir="$releasedir/$addon"
+	for addon in "${!Wago[@]}"; do
+		echo "$addon"
+		if [ -z "$wago_token" ]; then
+			echo "Skipping Wago external addon download for $addon: WAGO_API_TOKEN is not set."
+			continue
+		fi
+		addonDir="$releasedir/$addon"
 
-	curl -s -f \
-      -H "Authorization: Bearer $WAGO_API_KEY" \
-      -H "accept: application/json" \
-      "https://addons.wago.io/api/external/addons/${Wago[$addon]}?game_version=retail" -o "$addonDir.json"
+		curl -s -f \
+		  -H "Authorization: Bearer $wago_token" \
+		  -H "accept: application/json" \
+		  "https://addons.wago.io/api/external/addons/${Wago[$addon]}?game_version=retail" -o "$addonDir.json"
 
-	url=$(jq ".recent_release.stable.download_link" "$addonDir.json")
-	curl -s -f \
-      -H "Authorization: Bearer $WAGO_API_KEY" \
-      -H "accept: application/json" \
-      "${url//\"}" -o "${addonDir}.html"
+		url=$(jq ".recent_release.stable.download_link" "$addonDir.json")
+		curl -s -f \
+		  -H "Authorization: Bearer $wago_token" \
+		  -H "accept: application/json" \
+		  "${url//\"}" -o "${addonDir}.html"
 
-	download=$(grep -Po "(?<=href=\")[^\"]+" "${addonDir}.html")
-	wget -q -O "$addonDir.zip" "${download//\"}"
-	unzip -q "$addonDir.zip" -d "$releasedir"
-	zip_root_dirs+=("${extFolders[$addon]}")
-	rm "$addonDir.zip"
-done
+		download=$(grep -Po "(?<=href=\")[^\"]+" "${addonDir}.html")
+		wget -q -O "$addonDir.zip" "${download//\"}"
+		unzip -q "$addonDir.zip" -d "$releasedir"
+		zip_root_dirs+=("${extFolders[$addon]}")
+		rm -f "$addonDir.zip" "$addonDir.json" "${addonDir}.html"
+	done
 
-for addon in "${!GitHub[@]}"; do
-	echo "$addon";
-	addonDir="$releasedir/$addon"
-    if [ -f "release.json" ]; then
-		rm -f "release.json"
-    fi
-    version=$(curl -s "https://api.github.com/repos/${GitHub[$addon]}/releases/latest" | jq -r '.name')
-    wget -q "https://github.com/${GitHub[$addon]}/releases/download/$version/release.json"
+	for addon in "${!GitHub[@]}"; do
+		echo "$addon"
+		addonDir="$releasedir/$addon"
+		if [ -f "release.json" ]; then
+			rm -f "release.json"
+		fi
+		version=$(curl -s "https://api.github.com/repos/${GitHub[$addon]}/releases/latest" | jq -r '.name')
+		wget -q "https://github.com/${GitHub[$addon]}/releases/download/$version/release.json"
 
-    fileName=$(jq -r 'first(.releases[] | select(any(.metadata[]; .flavor == "mainline")) | .filename)' release.json)
-    if [ -f "release.json" ]; then
-		rm -f "release.json"
-    fi
-    wget -q -O "$addonDir.zip" "https://github.com/${GitHub[$addon]}/releases/download/$version/$fileName"
-	unzip -q "$addonDir.zip" -d "$releasedir"
-	zip_root_dirs+=("${extFolders[$addon]}")
-	rm "$addonDir.zip"
-done
+		fileName=$(jq -r 'first(.releases[] | select(any(.metadata[]; .flavor == "mainline")) | .filename)' release.json)
+		if [ -f "release.json" ]; then
+			rm -f "release.json"
+		fi
+		wget -q -O "$addonDir.zip" "https://github.com/${GitHub[$addon]}/releases/download/$version/$fileName"
+		unzip -q "$addonDir.zip" -d "$releasedir"
+		zip_root_dirs+=("${extFolders[$addon]}")
+		rm "$addonDir.zip"
+	done
+else
+	echo "Skipping third-party addon bundling (bundle_external_addons=$bundle_external_addons)."
+fi
 
 ###
 ### Process .pkgmeta to perform move-folders actions.
