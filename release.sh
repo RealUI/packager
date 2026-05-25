@@ -71,6 +71,11 @@ wowi_markup="bbcode"
 # Useful for Wago-focused builds where dependencies are installed separately.
 bundle_external_addons="yes"
 
+# Set to "yes" to prefer a nightly GitHub release over the latest stable release
+# when downloading Aurora as an external addon. Falls back to stable if no nightly
+# exists or if the nightly is older.
+aurora_nightly="no"
+
 ## END USER OPTIONS
 
 if [[ ${BASH_VERSINFO[0]} -lt 4 ]] || [[ ${BASH_VERSINFO[0]} -eq 4 && ${BASH_VERSINFO[1]} -lt 3 ]]; then
@@ -448,6 +453,7 @@ fi
 [ -z "$wago_token" ] && wago_token=$WAGO_API_TOKEN
 [ -z "$wago_token" ] && wago_token=$WAGO_API_KEY
 [ -n "$BUNDLE_EXTERNAL_ADDONS" ] && bundle_external_addons=$BUNDLE_EXTERNAL_ADDONS
+[ -n "$AURORA_NIGHTLY" ] && aurora_nightly=$AURORA_NIGHTLY
 
 case "${bundle_external_addons,,}" in
 	yes|true|on|1)
@@ -455,6 +461,15 @@ case "${bundle_external_addons,,}" in
 		;;
 	*)
 		bundle_external_addons="no"
+		;;
+esac
+
+case "${aurora_nightly,,}" in
+	yes|true|on|1)
+		aurora_nightly="yes"
+		;;
+	*)
+		aurora_nightly="no"
 		;;
 esac
 
@@ -2670,7 +2685,32 @@ if [ "$bundle_external_addons" = "yes" ]; then
 		if [ -f "release.json" ]; then
 			rm -f "release.json"
 		fi
-		version=$(curl -s "https://api.github.com/repos/${GitHub[$addon]}/releases/latest" | jq -r '.name')
+
+		if [[ "$addon" == "Aurora" && "$aurora_nightly" == "yes" ]]; then
+			latest_json=$(curl -s "https://api.github.com/repos/${GitHub[$addon]}/releases/latest")
+			latest_version=$(jq -r '.name' <<< "$latest_json")
+			latest_date=$(jq -r '.created_at' <<< "$latest_json")
+
+			nightly_json=$(curl -s "https://api.github.com/repos/${GitHub[$addon]}/releases?per_page=10" | \
+				jq 'first(.[] | select(.tag_name | test("nightly"; "i")))')
+
+			if [[ -n "$nightly_json" && "$nightly_json" != "null" ]]; then
+				nightly_date=$(jq -r '.created_at' <<< "$nightly_json")
+				if [[ "$nightly_date" > "$latest_date" ]]; then
+					version=$(jq -r '.name' <<< "$nightly_json")
+					echo "Using Aurora nightly: $version (newer than release $latest_version)"
+				else
+					version="$latest_version"
+					echo "Using Aurora release: $version (no newer nightly available)"
+				fi
+			else
+				version="$latest_version"
+				echo "No Aurora nightly found, using release: $version"
+			fi
+		else
+			version=$(curl -s "https://api.github.com/repos/${GitHub[$addon]}/releases/latest" | jq -r '.name')
+		fi
+
 		wget -q "https://github.com/${GitHub[$addon]}/releases/download/$version/release.json"
 
 		fileName=$(jq -r 'first(.releases[] | select(any(.metadata[]; .flavor == "mainline")) | .filename)' release.json)
