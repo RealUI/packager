@@ -2613,16 +2613,16 @@ fi
 if [ "$bundle_external_addons" = "yes" ]; then
 	declare -A WoWI=(
 		# ["Aurora"]=18589
-		["BadBoy"]=8736
-		["BadBoy_CCleaner"]=13526
-		["BadBoy_Guilded"]=16951
+		# ["BadBoy"]=8736              # de-bundled 2026-08-15: optional user install (see README "Recommended optional AddOns")
+		# ["BadBoy_CCleaner"]=13526    # de-bundled 2026-08-15
+		# ["BadBoy_Guilded"]=16951     # de-bundled 2026-08-15
 		["Bartender4"]=11190
 		["Masque"]=12097
 		# ["Raven"]=18242
 	)
 	declare -A Wago=(
-		["Grid2"]="grid2"
-		["Platynator"]="platynator"
+		# ["Grid2"]="grid2"  # de-bundled 2026-08-15: RealUI ships its own raid frames; Grid2 stays supported as an optional user install
+		# ["Platynator"]="platynator"  # de-bundled 2026-08-15: RealUI_Nameplates is the default; Platynator stays supported as an optional user install
 	)
 	declare -A GitHub=(
 		["Aurora"]="RealUI/Aurora"
@@ -2631,12 +2631,12 @@ if [ "$bundle_external_addons" = "yes" ]; then
 	)
 	declare -A extFolders=(
 		["Aurora"]="Aurora"
-		["BadBoy"]="BadBoy"
-		["BadBoy_CCleaner"]="BadBoy_CCleaner"
-		["BadBoy_Guilded"]="BadBoy_Guilded"
+		# ["BadBoy"]="BadBoy"                      # de-bundled 2026-08-15
+		# ["BadBoy_CCleaner"]="BadBoy_CCleaner"    # de-bundled 2026-08-15
+		# ["BadBoy_Guilded"]="BadBoy_Guilded"      # de-bundled 2026-08-15
 		["Bartender4"]="Bartender4"
-		["Grid2"]="Grid2 Grid2LDB Grid2Options Grid2RaidDebuffs Grid2RaidDebuffsOptions"
-		["Platynator"]="Platynator"
+		# ["Grid2"]="Grid2 Grid2LDB Grid2Options Grid2RaidDebuffs Grid2RaidDebuffsOptions"  # de-bundled 2026-08-15
+		# ["Platynator"]="Platynator"  # de-bundled 2026-08-15
 		["Masque"]="Masque"
 		# ["Raven"]="Raven Raven_Options"
 	)
