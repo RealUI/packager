@@ -2616,13 +2616,13 @@ if [ "$bundle_external_addons" = "yes" ]; then
 		# ["BadBoy"]=8736              # de-bundled 2026-08-15: optional user install (see README "Recommended optional AddOns")
 		# ["BadBoy_CCleaner"]=13526    # de-bundled 2026-08-15
 		# ["BadBoy_Guilded"]=16951     # de-bundled 2026-08-15
-		["Bartender4"]=11190
-		["Masque"]=12097
+		# ["Bartender4"]=11190  # de-bundled 2026-08-15; support removed 2026-08-22: RealUI_ActionBars replaces it, "/rab import" converts old BT4 profiles
+		# ["Masque"]=12097      # de-bundled 2026-08-15: only bundled for BT4's button skin; RealUI_ActionBars skins directly ("RealUI" Masque skin stays registered in RealUI_Skins)
 		# ["Raven"]=18242
 	)
 	declare -A Wago=(
 		# ["Grid2"]="grid2"  # de-bundled 2026-08-15: RealUI ships its own raid frames; Grid2 stays supported as an optional user install
-		# ["Platynator"]="platynator"  # de-bundled 2026-08-15: RealUI_Nameplates is the default; Platynator stays supported as an optional user install
+		# ["Platynator"]="platynator"  # de-bundled 2026-08-15; interop removed 2026-08-22: RealUI_Nameplates is the default, only the coexistence stand-down remains
 	)
 	declare -A GitHub=(
 		["Aurora"]="RealUI/Aurora"
@@ -2634,10 +2634,10 @@ if [ "$bundle_external_addons" = "yes" ]; then
 		# ["BadBoy"]="BadBoy"                      # de-bundled 2026-08-15
 		# ["BadBoy_CCleaner"]="BadBoy_CCleaner"    # de-bundled 2026-08-15
 		# ["BadBoy_Guilded"]="BadBoy_Guilded"      # de-bundled 2026-08-15
-		["Bartender4"]="Bartender4"
+		# ["Bartender4"]="Bartender4"  # de-bundled 2026-08-15
 		# ["Grid2"]="Grid2 Grid2LDB Grid2Options Grid2RaidDebuffs Grid2RaidDebuffsOptions"  # de-bundled 2026-08-15
 		# ["Platynator"]="Platynator"  # de-bundled 2026-08-15
-		["Masque"]="Masque"
+		# ["Masque"]="Masque"  # de-bundled 2026-08-15
 		# ["Raven"]="Raven Raven_Options"
 	)
 
